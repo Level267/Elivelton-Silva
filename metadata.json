@@ -1,0 +1,6 @@
+{
+  "name": "DigaNews",
+  "description": "Portal de notícias geek interativo com seções de games, filmes, séries, animes e quadrinhos, incluindo um radar de lançamentos, quiz de curiosidades e assistente inteligente por IA.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
