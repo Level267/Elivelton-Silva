@@ -175,7 +175,43 @@ Coloque seu fone de ouvido espacial, prepare a bebida e venha conosco nessa viag
   }
 ];
 
+const getRelativeDateStr = (daysOffset: number): string => {
+  const d = new Date();
+  d.setDate(d.getDate() + daysOffset);
+  const yyyy = d.getFullYear();
+  const mm = String(d.getMonth() + 1).padStart(2, '0');
+  const dd = String(d.getDate()).padStart(2, '0');
+  return `${yyyy}-${mm}-${dd}`;
+};
+
 export const RELEASES_CALENDAR: ReleaseItem[] = [
+  {
+    id: "r-today",
+    title: "The Witcher 4: Polaris (Teaser Oficial)",
+    category: "games",
+    releaseDate: getRelativeDateStr(0),
+    platformOrWhere: "YouTube & Steam",
+    imageUrl: "https://images.unsplash.com/photo-1542751371-adc38448a05e?auto=format&fit=crop&w=400&q=80",
+    hypeCount: 7850
+  },
+  {
+    id: "r-yesterday",
+    title: "Demon Slayer: Infinity Castle Movie 1",
+    category: "animes",
+    releaseDate: getRelativeDateStr(-1),
+    platformOrWhere: "Cinema (Crunchyroll)",
+    imageUrl: "https://images.unsplash.com/photo-1578632767115-351597cf2477?auto=format&fit=crop&w=400&q=80",
+    hypeCount: 9110
+  },
+  {
+    id: "r-expired",
+    title: "Minecraft 2 (Beta Fechada)",
+    category: "games",
+    releaseDate: getRelativeDateStr(-3),
+    platformOrWhere: "Microsoft Store",
+    imageUrl: "https://images.unsplash.com/photo-1552820728-8b83bb6b773f?auto=format&fit=crop&w=400&q=80",
+    hypeCount: 15400
+  },
   {
     id: "r1",
     title: "Grand Theft Auto VI",

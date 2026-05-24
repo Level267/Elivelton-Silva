@@ -19,7 +19,9 @@ import {
   Search,
   Clock,
   ArrowUpDown,
-  Bot
+  Bot,
+  Edit2,
+  Trash2
 } from "lucide-react";
 import { Article } from "../data";
 
@@ -38,13 +40,19 @@ interface ExtraFeaturesProps {
   releases?: any[];
   onHype?: (id: string) => void;
   onAddRelease?: (newRel: any) => void;
+  onUpdateRelease?: (updatedRel: any) => void;
+  onDeleteRelease?: (id: string) => void;
+  onResetReleases?: () => void;
 }
 
 export default function ExtraFeatures({ 
   activeArticle,
   releases = [],
   onHype,
-  onAddRelease
+  onAddRelease,
+  onUpdateRelease,
+  onDeleteRelease,
+  onResetReleases
 }: ExtraFeaturesProps) {
   const [activeTab, setActiveTab] = useState<"debate" | "headline" | "hype">("debate");
 
@@ -65,6 +73,22 @@ export default function ExtraFeatures({
   const [newImageUrl, setNewImageUrl] = useState("");
   const [addReleaseError, setAddReleaseError] = useState("");
   const [isFormOpen, setIsFormOpen] = useState(false);
+  const [editingRelease, setEditingRelease] = useState<any | null>(null);
+
+  const startEditingRelease = (rel: any) => {
+    setEditingRelease(rel);
+    setNewTitle(rel.title);
+    setNewCategory(rel.category);
+    setNewDate(rel.releaseDate);
+    setNewPlatform(rel.platformOrWhere || "");
+    setNewImageUrl(rel.imageUrl || "");
+    setIsFormOpen(true);
+    // Scroll form into view
+    const formEl = document.getElementById("btn-toggle-add-release-form");
+    if (formEl) {
+      formEl.scrollIntoView({ behavior: "smooth" });
+    }
+  };
 
   // --- Opção 1: Arena de Debates Geeks ---
   const [debates, setDebates] = useState<DebateTopic[]>([
@@ -637,27 +661,44 @@ export default function ExtraFeatures({
       return;
     }
 
-    const randomHype = Math.floor(Math.random() * 300) + 15;
-    const placeholderImages = [
-      "https://images.unsplash.com/photo-1542751371-adc38448a05e?auto=format&fit=crop&w=400&q=80",
-      "https://images.unsplash.com/photo-1552820728-8b83bb6b773f?auto=format&fit=crop&w=400&q=80",
-      "https://images.unsplash.com/photo-1635805737707-575885ab0820?auto=format&fit=crop&w=400&q=80",
-      "https://images.unsplash.com/photo-1578632767115-351597cf2477?auto=format&fit=crop&w=400&q=80"
-    ];
-    const finalImage = newImageUrl.trim() || placeholderImages[Math.floor(Math.random() * placeholderImages.length)];
+    if (editingRelease) {
+      const updatedRel = {
+        ...editingRelease,
+        title: newTitle.trim(),
+        category: newCategory,
+        releaseDate: newDate,
+        platformOrWhere: newPlatform.trim() || "Multiverso Digital",
+        imageUrl: newImageUrl.trim() || editingRelease.imageUrl
+      };
+      if (onUpdateRelease) {
+        onUpdateRelease(updatedRel);
+      }
+      setEditingRelease(null);
+    } else {
+      const randomHype = Math.floor(Math.random() * 300) + 15;
+      const placeholderImages = [
+        "https://images.unsplash.com/photo-1542751371-adc38448a05e?auto=format&fit=crop&w=400&q=80",
+        "https://images.unsplash.com/photo-1552820728-8b83bb6b773f?auto=format&fit=crop&w=400&q=80",
+        "https://images.unsplash.com/photo-1635805737707-575885ab0820?auto=format&fit=crop&w=400&q=80",
+        "https://images.unsplash.com/photo-1578632767115-351597cf2477?auto=format&fit=crop&w=400&q=80"
+      ];
+      const finalImage = newImageUrl.trim() || placeholderImages[Math.floor(Math.random() * placeholderImages.length)];
 
-    const newRel = {
-      id: "usr-" + Date.now().toString(),
-      title: newTitle.trim(),
-      category: newCategory,
-      releaseDate: newDate,
-      platformOrWhere: newPlatform.trim() || "Multiverso Digital",
-      imageUrl: finalImage,
-      hypeCount: randomHype
-    };
+      const newRel = {
+        id: "usr-" + Date.now().toString(),
+        title: newTitle.trim(),
+        category: newCategory,
+        releaseDate: newDate,
+        platformOrWhere: newPlatform.trim() || "Multiverso Digital",
+        imageUrl: finalImage,
+        hypeCount: randomHype
+      };
 
-    if (onAddRelease) {
-      onAddRelease(newRel);
+      if (onAddRelease) {
+        onAddRelease(newRel);
+      }
+      // Call single predictions instantly
+      handleAnalyzeRelease(newRel);
     }
 
     // Reset fields
@@ -667,24 +708,31 @@ export default function ExtraFeatures({
     setNewImageUrl("");
     setAddReleaseError("");
     setIsFormOpen(false);
-
-    // Call single predictions instantly
-    handleAnalyzeRelease(newRel);
   };
 
   const getCountdownText = (dateStr: string) => {
     try {
-      const today = new Date("2026-05-20");
-      const target = new Date(dateStr);
+      const parts = dateStr.split("-").map(Number);
+      if (parts.length !== 3) return { text: "Estreia em breve", color: "text-slate-400" };
+      const [year, month, day] = parts;
+      
+      const target = new Date(year, month - 1, day);
+      target.setHours(0, 0, 0, 0);
+
+      const today = new Date();
+      today.setHours(0, 0, 0, 0);
+
       const diffTime = target.getTime() - today.getTime();
-      const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+      const diffDays = Math.round(diffTime / 86400000);
       
       if (diffDays === 0) {
-        return { text: "🎉 ESTREIA HOJE!", color: "text-emerald-400 font-extrabold animate-pulse" };
+        return { text: "🎉 JÁ DISPONÍVEL (Hoje!)", color: "text-emerald-400 font-black animate-pulse bg-emerald-500/10 border border-emerald-500/20 px-1.5 py-0.5 rounded" };
+      } else if (diffDays === -1) {
+        return { text: "🟢 JÁ DISPONÍVEL (Ontem)", color: "text-emerald-300 font-extrabold bg-emerald-500/5 border border-emerald-500/10 px-1.5 py-0.5 rounded" };
       } else if (diffDays > 0) {
-        return { text: `Faltam ${diffDays} dias!`, color: "text-cyan-400 font-bold" };
+        return { text: `Faltam ${diffDays} ${diffDays === 1 ? "dia" : "dias"}!`, color: "text-cyan-400 font-bold" };
       } else {
-        return { text: `Lançado há ${Math.abs(diffDays)} dias!`, color: "text-slate-500 font-medium" };
+        return { text: `Lançado há ${Math.abs(diffDays)} dias`, color: "text-slate-500 font-medium font-mono" };
       }
     } catch {
       return { text: "Estreia em breve", color: "text-slate-400" };
@@ -694,7 +742,7 @@ export default function ExtraFeatures({
   return (
     <div className="bg-[#111318] border border-white/10 rounded-2xl overflow-hidden shadow-2xl">
       {/* 3 Multi-Tab Navigation header */}
-      <div className="grid grid-cols-3 border-b border-white/10 bg-[#07080a]">
+      <div className="grid grid-cols-2 border-b border-white/10 bg-[#07080a]">
         <button
           id="extra-tab-debate"
           type="button"
@@ -721,20 +769,6 @@ export default function ExtraFeatures({
         >
           <Sparkles className="w-4 h-4 text-purple-400" />
           🎨 CAPAS COM IA
-        </button>
-
-        <button
-          id="extra-tab-hype"
-          type="button"
-          onClick={() => setActiveTab("hype")}
-          className={`py-4 text-[10px] md:text-xs font-black tracking-wider md:tracking-widest border-b-2 transition-all flex items-center justify-center gap-1.5 ${
-            activeTab === "hype"
-              ? "border-amber-500 text-amber-400 bg-[#111318]/50"
-              : "border-transparent text-slate-400 hover:text-white hover:bg-white/5"
-          }`}
-        >
-          <Calendar className="w-4 h-4 text-amber-500 animate-bounce" />
-          🚀 RADAR & HIGH HYPE
         </button>
       </div>
 
@@ -1168,452 +1202,7 @@ export default function ExtraFeatures({
           </div>
         )}
 
-        {/* --- OPÇÃO 3: CENTRAL DE HYPE & CALENDÁRIO DE LANÇAMENTOS PANEL --- */}
-        {activeTab === "hype" && (
-          <div className="space-y-6">
-            <div className="flex flex-col lg:flex-row justify-between items-start lg:items-center gap-4 bg-slate-950/40 p-4 rounded-2xl border border-white/5">
-              <div className="space-y-1">
-                <h3 className="text-sm font-extrabold uppercase tracking-wider text-slate-200 flex items-center gap-1.5">
-                  <span className="text-lg">🚀</span> Central de High Hype & Calendário Geek
-                </h3>
-                <p className="text-xs text-slate-400">
-                  Acompanhe e influencie as temperaturas de lançamentos mais aguardados! Adicione estreias e consulte o futuro com o DigaBot Inteligente.
-                </p>
-              </div>
 
-              <div className="flex flex-wrap gap-2.5 w-full lg:w-auto shrink-0">
-                <button
-                  id="btn-trigger-hype-report"
-                  type="button"
-                  onClick={handleGenerateHypeReport}
-                  disabled={hypeReportLoading}
-                  className="bg-gradient-to-r from-amber-500 to-orange-600 hover:from-amber-400 hover:to-orange-500 disabled:opacity-50 text-black text-xs font-black uppercase px-4 py-2.5 rounded-xl flex items-center justify-center gap-1.5 transition-all shadow-md flex-1 lg:flex-none cursor-pointer"
-                >
-                  <Bot className={`w-4 h-4 ${hypeReportLoading ? "animate-spin" : ""}`} />
-                  {hypeReportLoading ? "Espreitando o Amanhã..." : "Análise do Termômetro Geral (IA)"}
-                </button>
-
-                <button
-                  id="btn-toggle-add-release-form"
-                  type="button"
-                  onClick={() => setIsFormOpen(!isFormOpen)}
-                  className={`text-xs font-black uppercase px-4 py-2.5 rounded-xl flex items-center justify-center gap-1.5 transition-all border flex-1 lg:flex-none cursor-pointer ${
-                    isFormOpen 
-                      ? "bg-rose-950/50 border-rose-500 text-rose-300 hover:bg-rose-900/50" 
-                      : "bg-[#161a23] border-white/10 text-white hover:bg-[#1f2533]"
-                  }`}
-                >
-                  {isFormOpen ? "Fechar Conjurador" : "➕ Conjurar Lançamento"}
-                </button>
-              </div>
-            </div>
-
-            {/* AI Generated Hype Report Presentation */}
-            {hypeReport && (
-              <motion.div
-                initial={{ opacity: 0, y: -10 }}
-                animate={{ opacity: 1, y: 0 }}
-                className="bg-slate-950 border-l-4 border-amber-500 p-5 rounded-r-xl space-y-4 shadow-xl"
-              >
-                <div className="flex justify-between items-center border-b border-white/5 pb-2">
-                  <h4 className="text-xs font-extrabold uppercase tracking-widest text-[#d97706] flex items-center gap-1.5 font-mono">
-                    <Cpu className="w-4 h-4 text-amber-50 animate-pulse" />
-                    BOLETIM DE HYPE DO DIGABOT (GEMINI AI ACTIVE)
-                  </h4>
-                  <button
-                    onClick={() => setHypeReport("")}
-                    className="text-[10px] text-slate-500 hover:text-white font-mono bg-white/5 hover:bg-white/10 px-2 py-1 rounded"
-                  >
-                    Ocultar Boletim
-                  </button>
-                </div>
-                
-                <div className="space-y-1 max-h-96 overflow-y-auto pr-2 custom-scrollbar">
-                  {hypeReport.split("\n").map((line, idx) => {
-                    const cleanLine = line.trim();
-                    if (cleanLine.startsWith("###")) {
-                      return <h5 key={idx} className="text-xs font-black text-amber-400 mt-3 mb-1 uppercase tracking-wider">{cleanLine.replace("###", "").replace(/[*#]/g, "").trim()}</h5>;
-                    }
-                    if (cleanLine.startsWith("##")) {
-                      return <h4 key={idx} className="text-sm font-black text-cyan-400 mt-4 mb-2 pb-1 border-b border-white/5 uppercase tracking-wide">{cleanLine.replace("##", "").replace(/[*#]/g, "").trim()}</h4>;
-                    }
-                    if (cleanLine.startsWith("#")) {
-                      return <h3 key={idx} className="text-base font-black text-rose-500 mt-5 mb-3 uppercase tracking-wider">{cleanLine.replace("#", "").replace(/[*#]/g, "").trim()}</h3>;
-                    }
-                    if (cleanLine.startsWith("-") || cleanLine.startsWith("*")) {
-                      return (
-                        <li key={idx} className="ml-3 list-disc text-slate-300 text-xs my-1 leading-relaxed">
-                          {cleanLine.substring(1).replace(/[*#]/g, "").trim()}
-                        </li>
-                      );
-                    }
-                    if (cleanLine === "") return <div key={idx} className="h-1" />;
-                    
-                    // Parse double asterisks in line
-                    const parts = cleanLine.split(/(\*\*.*?\*\*)/);
-                    return (
-                      <p key={idx} className="text-xs text-slate-300 leading-relaxed my-1">
-                        {parts.map((part, pIdx) => {
-                          if (part.startsWith("**") && part.endsWith("**")) {
-                            return <strong key={pIdx} className="font-extrabold text-white text-[12px]">{part.slice(2, -2)}</strong>;
-                          }
-                          return part;
-                        })}
-                      </p>
-                    );
-                  })}
-                </div>
-              </motion.div>
-            )}
-
-            {/* REGISTER NEW RELEASE FORM CARD (COLLAPSIBLE / ACCORDION) */}
-            {isFormOpen && (
-              <motion.div
-                initial={{ opacity: 0, height: 0 }}
-                animate={{ opacity: 1, height: "auto" }}
-                className="bg-slate-900 border border-white/10 rounded-xl p-5 shadow-lg space-y-4"
-              >
-                <div>
-                  <h4 className="text-xs font-extrabold text-white uppercase tracking-wider">
-                    🌌 Portal do Conjurador: Agendar Novo Lançamento
-                  </h4>
-                  <p className="text-[11px] text-slate-400">
-                    Estreias personalizadas aparecem instantaneamente no calendário com direito e votos e análise preditiva do DigaBot.
-                  </p>
-                </div>
-
-                <form onSubmit={handleAddNewReleaseSubmit} className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  <div className="space-y-1">
-                    <label className="text-[10px] uppercase font-mono font-bold text-slate-400 block">Título Oficial *</label>
-                    <input
-                      id="form-release-title"
-                      type="text"
-                      placeholder="Ex: Spider-Man 4, Matrix 5..."
-                      value={newTitle}
-                      onChange={(e) => setNewTitle(e.target.value)}
-                      className="bg-slate-950 border border-white/10 rounded-lg px-3 py-2 text-xs text-white focus:outline-none focus:border-cyan-400 w-full"
-                      required
-                    />
-                  </div>
-
-                  <div className="space-y-1">
-                    <label className="text-[10px] uppercase font-mono font-bold text-slate-400 block">Categoria *</label>
-                    <select
-                      id="form-release-category"
-                      value={newCategory}
-                      onChange={(e) => setNewCategory(e.target.value)}
-                      className="bg-slate-950 border border-white/10 rounded-lg px-3 py-2 text-xs text-white focus:outline-none focus:border-cyan-400 w-full font-semibold"
-                    >
-                      <option value="games">🎮 Games & Jogos</option>
-                      <option value="filmes">🎬 Filmes & Cinema</option>
-                      <option value="series">📺 Séries de TV</option>
-                      <option value="animes">👾 Animes & Mangás</option>
-                    </select>
-                  </div>
-
-                  <div className="space-y-1">
-                    <label className="text-[10px] uppercase font-mono font-bold text-slate-400 block">Data Prevista *</label>
-                    <input
-                      id="form-release-date"
-                      type="date"
-                      value={newDate}
-                      onChange={(e) => setNewDate(e.target.value)}
-                      className="bg-slate-950 border border-white/10 rounded-lg px-3 py-2 text-xs text-white focus:outline-none focus:border-cyan-400 w-full font-mono"
-                      required
-                    />
-                  </div>
-
-                  <div className="space-y-1">
-                    <label className="text-[10px] uppercase font-mono font-bold text-slate-400 block">Plataforma / Onde Assistir</label>
-                    <input
-                      id="form-release-platform"
-                      type="text"
-                      placeholder="Ex: PS5, Netflix, Cinemas..."
-                      value={newPlatform}
-                      onChange={(e) => setNewPlatform(e.target.value)}
-                      className="bg-slate-950 border border-white/10 rounded-lg px-3 py-2 text-xs text-white focus:outline-none focus:border-cyan-400 w-full"
-                    />
-                  </div>
-
-                  <div className="col-span-1 md:col-span-2 space-y-1">
-                    <label className="text-[10px] uppercase font-mono font-bold text-slate-400 block">URL da Imagem de Banner (Opcional)</label>
-                    <input
-                      id="form-release-image"
-                      type="url"
-                      placeholder="https://images.unsplash.com/photo-..."
-                      value={newImageUrl}
-                      onChange={(e) => setNewImageUrl(e.target.value)}
-                      className="bg-slate-950 border border-white/10 rounded-lg px-3 py-2 text-xs text-white focus:outline-none focus:border-cyan-400 w-full font-mono"
-                    />
-                  </div>
-
-                  {addReleaseError && (
-                    <div className="col-span-1 md:col-span-2 text-xs font-mono font-bold text-rose-500 bg-rose-950/20 p-2.5 rounded border border-rose-900/40">
-                      ⚠️ Alerta Temporal: {addReleaseError}
-                    </div>
-                  )}
-
-                  <div className="col-span-1 md:col-span-2 flex justify-end gap-2.5 pt-2 border-t border-white/5">
-                    <button
-                      type="button"
-                      onClick={() => setIsFormOpen(false)}
-                      className="bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs font-bold uppercase py-2 px-4 rounded-lg cursor-pointer"
-                    >
-                      Cancelar
-                    </button>
-                    <button
-                      id="btn-submit-new-release"
-                      type="submit"
-                      className="bg-cyan-600 hover:bg-cyan-500 text-black text-xs font-black uppercase py-2 px-6 rounded-lg flex items-center gap-1 cursor-pointer"
-                    >
-                      <Plus className="w-3.5 h-3.5" />
-                      Invocar Lançamento & Obter Previsão IA
-                    </button>
-                  </div>
-                </form>
-              </motion.div>
-            )}
-
-            {/* FILTER CONTROLS & SEARCH BAR PILLS */}
-            <div className="flex flex-col md:flex-row justify-between items-center gap-3.5 bg-[#151821]/80 p-3 border border-white/5 rounded-xl">
-              {/* Search bar */}
-              <div className="relative w-full md:w-64 shrink-0">
-                <Search className="w-3.5 h-3.5 text-slate-500 absolute left-3 top-2.5" />
-                <input
-                  id="release-search-bar"
-                  type="text"
-                  placeholder="Pesquisar lançamentos..."
-                  value={releaseSearch}
-                  onChange={(e) => setReleaseSearch(e.target.value)}
-                  className="bg-slate-950 border border-white/5 rounded-lg pl-8 pr-3 py-2 text-xs text-white placeholder-slate-600 focus:outline-none focus:border-cyan-400 w-full"
-                />
-              </div>
-
-              {/* Category pills */}
-              <div className="flex flex-wrap gap-1 w-full justify-start md:justify-center overflow-x-auto select-none custom-scrollbar pb-1 md:pb-0">
-                {[
-                  { id: "all", label: "Tudo" },
-                  { id: "games", label: "🎮 Games" },
-                  { id: "filmes", label: "🎬 Filmes" },
-                  { id: "series", label: "📺 Séries" },
-                  { id: "animes", label: "👾 Animes" }
-                ].map((pill) => (
-                  <button
-                    key={pill.id}
-                    onClick={() => setReleaseFilter(pill.id)}
-                    className={`py-1 px-3 text-[10px] font-extrabold uppercase rounded-full transition-all cursor-pointer ${
-                      releaseFilter === pill.id
-                        ? "bg-cyan-500 text-black shadow-md shadow-cyan-950/40"
-                        : "bg-slate-950/60 border border-white/5 text-slate-400 hover:text-white hover:bg-white/5"
-                    }`}
-                  >
-                    {pill.label}
-                  </button>
-                ))}
-              </div>
-
-              {/* Sorting buttons */}
-              <div className="flex bg-slate-950 rounded-lg p-0.5 border border-white/5 shrink-0 self-end md:self-auto">
-                <button
-                  onClick={() => setReleaseSort("date")}
-                  className={`flex items-center gap-1 px-3 py-1 text-[10px] font-extrabold uppercase rounded-md transition-all cursor-pointer ${
-                    releaseSort === "date"
-                      ? "bg-slate-800 text-cyan-400"
-                      : "text-slate-500 hover:text-white"
-                  }`}
-                  title="Ordenar por data prevista"
-                >
-                  <Clock className="w-3 h-3" />
-                  Data
-                </button>
-                <button
-                  onClick={() => setReleaseSort("hype")}
-                  className={`flex items-center gap-1 px-3 py-1 text-[10px] font-extrabold uppercase rounded-md transition-all cursor-pointer ${
-                    releaseSort === "hype"
-                      ? "bg-slate-800 text-amber-500"
-                      : "text-slate-500 hover:text-white"
-                  }`}
-                  title="Ordenar pelos mais empolgados (Hype)"
-                >
-                  <Flame className="w-3 h-3 text-red-500" />
-                  Hype
-                </button>
-              </div>
-            </div>
-
-            {/* RELEASES BANNER GRID LIST */}
-            {(() => {
-              const itemsToRender = releases.filter(rel => {
-                const matchesSearch = rel.title.toLowerCase().includes(releaseSearch.toLowerCase()) || 
-                                      (rel.platformOrWhere && rel.platformOrWhere.toLowerCase().includes(releaseSearch.toLowerCase()));
-                const matchesCategory = releaseFilter === "all" || rel.category === releaseFilter;
-                return matchesSearch && matchesCategory;
-              }).sort((a, b) => {
-                if (releaseSort === "hype") {
-                  return b.hypeCount - a.hypeCount;
-                } else {
-                  return new Date(a.releaseDate).getTime() - new Date(b.releaseDate).getTime();
-                }
-              });
-
-              if (itemsToRender.length === 0) {
-                return (
-                  <div className="p-10 text-center border border-dashed border-white/10 rounded-2xl bg-slate-905/30">
-                    <p className="text-slate-500 text-xs font-mono">
-                      Nenhum lançamento pop sintonizado sob esses critérios de escaneamento.
-                    </p>
-                    <button
-                      onClick={() => { setReleaseSearch(""); setReleaseFilter("all"); }}
-                      className="text-cyan-400 hover:underline text-[10px] font-mono mt-2"
-                    >
-                      Resetar filtros de escaneamento
-                    </button>
-                  </div>
-                );
-              }
-
-              return (
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  {itemsToRender.map((rel) => {
-                    const countdown = getCountdownText(rel.releaseDate);
-                    const formattedDate = () => {
-                      try {
-                        const parts = rel.releaseDate.split("-");
-                        return `${parts[2]}/${parts[1]}/${parts[0]}`;
-                      } catch {
-                        return rel.releaseDate;
-                      }
-                    };
-
-                    const isAnalyzingThis = analysisLoadingId === rel.id;
-                    const hasAnalysis = !!singleAnalysis[rel.id];
-
-                    return (
-                      <div
-                        key={rel.id}
-                        className="p-4 bg-slate-900/60 border border-white/5 rounded-xl flex flex-col justify-between gap-3 hover:border-white/15 hover:bg-slate-900/80 transition-all shadow-md group relative overflow-hidden"
-                      >
-                        {/* Background Category Glow */}
-                        <div className={`absolute top-0 right-0 w-24 h-24 rounded-full filter blur-[40px] opacity-10 pointer-events-none ${
-                          rel.category === "games" ? "bg-indigo-500" :
-                          rel.category === "filmes" ? "bg-rose-500" :
-                          rel.category === "animes" ? "bg-cyan-500" :
-                          rel.category === "podcast" ? "bg-purple-500" : "bg-teal-500"
-                        }`} />
-
-                        <div className="flex gap-4 items-start relative z-10">
-                          {/* Banner image or icon fallback */}
-                          <div className="w-16 h-16 rounded-xl border border-white/10 overflow-hidden shrink-0 bg-slate-950 relative">
-                            {rel.imageUrl ? (
-                              <img
-                                src={rel.imageUrl}
-                                alt={rel.title}
-                                referrerPolicy="no-referrer"
-                                className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
-                                onError={(e) => {
-                                  // Fallback gracefully on broken images
-                                  (e.target as any).src = "https://images.unsplash.com/photo-1542751371-adc38448a05e?auto=format&fit=crop&w=400&q=80";
-                                }}
-                              />
-                            ) : (
-                              <div className="w-full h-full flex items-center justify-center font-bold text-cyan-400 font-mono text-base bg-slate-950">
-                                {rel.category === "games" ? "🎮" : rel.category === "filmes" ? "🎬" : rel.category === "series" ? "📺" : rel.category === "podcast" ? "🎙️" : "👾"}
-                              </div>
-                            )}
-                            {/* Category badge */}
-                            <span className="absolute bottom-0 right-0 py-0.5 px-1 bg-black/80 font-mono text-[7px] text-zinc-400 font-bold border-t border-l border-white/10 rounded-tl-md uppercase">
-                              {rel.category}
-                            </span>
-                          </div>
-
-                          {/* Info */}
-                          <div className="space-y-1 overflow-hidden flex-1">
-                            <h4 className="text-xs font-black text-white group-hover:text-cyan-400 transition-colors uppercase leading-tight line-clamp-1">
-                              {rel.title}
-                            </h4>
-                            
-                            <div className="flex flex-col gap-0.5">
-                              <span className="text-[9px] text-slate-500 uppercase font-mono block truncate">
-                                🔌 {rel.platformOrWhere || "Multiverso Digital"}
-                              </span>
-                              
-                              <span className="text-[10px] font-mono leading-none flex items-center gap-1.5 pt-0.5">
-                                <span className="text-[9px] text-slate-400">📅 {formattedDate()}</span>
-                                <span className={`text-[9px] uppercase px-1 rounded bg-black/40 border border-white/5 font-extrabold ${countdown.color}`}>
-                                  {countdown.text}
-                                </span>
-                              </span>
-                            </div>
-                          </div>
-                        </div>
-
-                        {/* Button control actions */}
-                        <div className="flex items-center gap-2 pt-2 border-t border-white/5 relative z-10">
-                          {/* Hype Vote button */}
-                          <button
-                            id={`hype-vote-${rel.id}`}
-                            onClick={() => onHype && onHype(rel.id)}
-                            className="flex-1 shrink-0 flex items-center justify-center gap-1.5 bg-[#161a23] hover:bg-red-950/20 text-slate-200 hover:text-red-400 border border-white/5 rounded-lg py-1.5 px-3 text-[10px] font-black uppercase transition-all cursor-pointer"
-                          >
-                            <Flame className="w-3.5 h-3.5 text-amber-500 animate-pulse" />
-                            Up Hype ({rel.hypeCount})
-                          </button>
-
-                          {/* DigaBot Prediction trigger */}
-                          <button
-                            id={`hype-analyze-${rel.id}`}
-                            onClick={() => handleAnalyzeRelease(rel)}
-                            disabled={isAnalyzingThis}
-                            className={`flex-1 shrink-0 flex items-center justify-center gap-1.5 rounded-lg py-1.5 px-3 text-[10px] font-black uppercase transition-all cursor-pointer ${
-                              hasAnalysis 
-                                ? "bg-slate-950 border border-white/10 text-slate-400 hover:text-white" 
-                                : "bg-cyan-950/20 hover:bg-cyan-950/40 text-cyan-300 border border-cyan-500/20"
-                            }`}
-                          >
-                            <Bot className={`w-3.5 h-3.5 ${isAnalyzingThis ? "animate-spin" : ""}`} />
-                            {isAnalyzingThis ? "Vigiando..." : hasAnalysis ? "Ver Previsão IA" : "Veredito Cósmico"}
-                          </button>
-                        </div>
-
-                        {/* Collapsible predictive review analysis */}
-                        {hasAnalysis && (
-                          <motion.div
-                            initial={{ opacity: 0, height: 0 }}
-                            animate={{ opacity: 1, height: "auto" }}
-                            className="mt-2.5 p-3 bg-slate-950 rounded-lg border-l-2 border-cyan-400 text-[11px] leading-relaxed relative"
-                          >
-                            <button
-                              onClick={() => setSingleAnalysis(prev => {
-                                const copy = { ...prev };
-                                delete copy[rel.id];
-                                return copy;
-                              })}
-                              className="absolute top-1 right-2 text-[9px] font-mono text-slate-600 hover:text-white"
-                            >
-                              Sair
-                            </button>
-                            <div className="font-extrabold text-[#22d3ee] mb-1 font-mono uppercase text-[9px] flex items-center gap-1">
-                              <Bot className="w-3 h-3 text-cyan-400" /> Previsão de Rota do DigaBot:
-                            </div>
-                            <div className="text-slate-300 space-y-1 mt-1 pr-4">
-                              {singleAnalysis[rel.id].split("\n").map((line, idx) => {
-                                const pt = line.trim();
-                                if (pt.startsWith("-") || pt.startsWith("*")) {
-                                  return <li key={idx} className="ml-2 list-disc my-0.5">{pt.substring(1).trim()}</li>;
-                                }
-                                return <p key={idx} className="my-0.5">{pt}</p>;
-                              })}
-                            </div>
-                          </motion.div>
-                        )}
-                      </div>
-                    );
-                  })}
-                </div>
-              );
-            })()}
-          </div>
-        )}
       </div>
     </div>
   );

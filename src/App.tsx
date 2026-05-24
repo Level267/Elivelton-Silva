@@ -39,7 +39,8 @@ import {
   Globe,
   Check,
   Edit,
-  Video
+  Video,
+  Trash2
 } from "lucide-react";
 import { INITIAL_ARTICLES, RELEASES_CALENDAR, Article } from "./data";
 import QuizGame from "./components/QuizGame";
@@ -82,7 +83,32 @@ export default function App() {
   const [releases, setReleases] = useState<any[]>(() => {
     try {
       const saved = localStorage.getItem("diganews_releases");
-      return saved ? JSON.parse(saved) : RELEASES_CALENDAR;
+      if (saved) {
+        const parsed = JSON.parse(saved);
+        
+        // Sync any default items with their updated values from RELEASES_CALENDAR
+        const synced = parsed.map((item: any) => {
+          const original = RELEASES_CALENDAR.find((r) => r.id === item.id);
+          if (original) {
+            return {
+              ...item,
+              title: original.title,
+              category: original.category,
+              releaseDate: original.releaseDate,
+              platformOrWhere: original.platformOrWhere,
+              imageUrl: original.imageUrl,
+              hypeCount: Math.max(item.hypeCount || 0, original.hypeCount || 0)
+            };
+          }
+          return item;
+        });
+
+        const syncedIds = new Set(synced.map((item: any) => item.id));
+        // Add default releases that don't exist yet in the user's localStorage
+        const missingFromInitial = RELEASES_CALENDAR.filter(item => !syncedIds.has(item.id));
+        return [...synced, ...missingFromInitial];
+      }
+      return RELEASES_CALENDAR;
     } catch {
       return RELEASES_CALENDAR;
     }
@@ -346,6 +372,18 @@ export default function App() {
     }));
   };
 
+  const handleDeleteRelease = (id: string) => {
+    setReleases(prev => prev.filter(rel => rel.id !== id));
+  };
+
+  const handleUpdateRelease = (updatedRel: any) => {
+    setReleases(prev => prev.map(rel => rel.id === updatedRel.id ? updatedRel : rel));
+  };
+
+  const handleResetReleases = () => {
+    setReleases(RELEASES_CALENDAR);
+  };
+
   // Submit comment to active article
   const handleAddComment = (e: React.FormEvent) => {
     e.preventDefault();
@@ -386,6 +424,18 @@ export default function App() {
       case "quadrinhos": return <BookOpen className="w-3.5 h-3.5" />;
       case "podcast": return <Mic className="w-3.5 h-3.5" />;
       default: return <Compass className="w-3.5 h-3.5" />;
+    }
+  };
+
+  const getCategoryEmoji = (cat: string) => {
+    switch (cat) {
+      case "games": return "👾";
+      case "filmes": return "🎬";
+      case "series": return "📺";
+      case "animes": return "💮";
+      case "quadrinhos": return "📚";
+      case "podcast": return "🎙️";
+      default: return "🌟";
     }
   };
 
@@ -824,6 +874,9 @@ export default function App() {
                   releases={releases}
                   onHype={handleHype}
                   onAddRelease={(newRel) => setReleases(prev => [newRel, ...prev])}
+                  onUpdateRelease={handleUpdateRelease}
+                  onDeleteRelease={handleDeleteRelease}
+                  onResetReleases={handleResetReleases}
                 />
               </motion.div>
             ) : (
@@ -1458,41 +1511,7 @@ export default function App() {
             </div>
           </div>
 
-          {/* Bottom: Interactive Release Calendar */}
-          <div className="p-6 bg-[#07080a] flex-1">
-            <h3 className="text-xs font-extrabold uppercase tracking-widest text-slate-400 mb-4 flex items-center gap-1.5">
-              <Calendar className="w-3.5 h-3.5 text-cyan-400" />
-              Radar de Lançamentos
-            </h3>
 
-            <div className="space-y-3">
-              {releases.map((rel) => (
-                <div 
-                  key={rel.id} 
-                  className="flex justify-between items-center p-3 border border-white/5 bg-[#0f1115] hover:border-white/10 rounded-xl transition-all"
-                >
-                  <div className="flex gap-3 items-center overflow-hidden">
-                    <div className="text-[9px] font-mono leading-none bg-slate-900 border border-white/10 py-1 px-1.5 rounded text-cyan-400 font-bold text-center shrink-0">
-                      {rel.releaseDate.split("-")[1]}/{rel.releaseDate.split("-")[2]}
-                    </div>
-                    <div className="truncate">
-                      <span className="text-xs font-bold text-white block truncate">{rel.title}</span>
-                      <span className="text-[9px] text-slate-500 uppercase font-mono block truncate">{rel.platformOrWhere}</span>
-                    </div>
-                  </div>
-
-                  <button
-                    id={`hype-btn-${rel.id}`}
-                    onClick={() => handleHype(rel.id)}
-                    className="shrink-0 flex items-center gap-1 bg-[#161921] hover:bg-cyan-950/40 text-gray-300 hover:text-cyan-400 border border-white/5 rounded-lg py-1 px-2.5 text-[10px] font-extrabold transition-all"
-                  >
-                    <Flame className="w-3 h-3 text-amber-500 animate-pulse" />
-                    Hype ({rel.hypeCount})
-                  </button>
-                </div>
-              ))}
-            </div>
-          </div>
         </div>
 
       </div>
@@ -1505,10 +1524,17 @@ export default function App() {
         
         <div className="flex-1 overflow-hidden relative">
           <div className="animate-[marquee_25s_linear_infinite] whitespace-nowrap text-xs text-slate-400 inline-block">
-            <span className="inline-block px-10 border-r border-white/5">👾 GTA VI: VAZAMENTOS APONTAM FÍSICA MARINHA SURREALISTA E SUBMARINOS EM VICE CITY</span>
-            <span className="inline-block px-10 border-r border-white/5">🍿 DAREDEVIL BORN AGAIN: TEMPORADA 2 REVELA ORIGEM DA FASE DO PREFEITO FISK</span>
-            <span className="inline-block px-10 border-r border-white/5">🎬 SPIDER-MAN 4 EM ROTEIRO FINAL E NEGOCIAÇÕES AVANÇADAS COM DIRETOR</span>
-            <span className="inline-block px-10 border-r border-white/5">🗡️ ELDEN RING: VAGAS DE EXPANSÃO JÁ FORAM DISPONIBILIZADAS</span>
+            {articles.map((art) => (
+              <span key={art.id} className="inline-block px-10 border-r border-white/5 uppercase font-semibold">
+                {getCategoryEmoji(art.category)} {art.title}
+              </span>
+            ))}
+            {/* Duplication to ensure infinite smooth seamless looping animation */}
+            {articles.map((art) => (
+              <span key={`dup-${art.id}`} className="inline-block px-10 border-r border-white/5 uppercase font-semibold">
+                {getCategoryEmoji(art.category)} {art.title}
+              </span>
+            ))}
           </div>
         </div>
 
