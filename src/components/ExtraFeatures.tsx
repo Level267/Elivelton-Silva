@@ -164,7 +164,7 @@ export default function ExtraFeatures({
         setDebates(prev => [generatedDebate, ...prev]);
         setNewDebateTitle("");
       } else {
-        alert("O portal cósmico oscilou! Tente reorganizar a frase de debate.");
+        throw new Error("O portal cósmico oscilou!");
       }
     } catch {
       const generatedDebate: DebateTopic = {
@@ -249,7 +249,7 @@ export default function ExtraFeatures({
         }
 
       } else {
-        alert("Não conseguimos sintonizar o estúdio de do Gemini.");
+        throw new Error("Não sintonizamos o estúdio.");
       }
     } catch {
       const parsedError = {
@@ -1497,7 +1497,8 @@ export default function ExtraFeatures({
                         <div className={`absolute top-0 right-0 w-24 h-24 rounded-full filter blur-[40px] opacity-10 pointer-events-none ${
                           rel.category === "games" ? "bg-indigo-500" :
                           rel.category === "filmes" ? "bg-rose-500" :
-                          rel.category === "animes" ? "bg-cyan-500" : "bg-teal-500"
+                          rel.category === "animes" ? "bg-cyan-500" :
+                          rel.category === "podcast" ? "bg-purple-500" : "bg-teal-500"
                         }`} />
 
                         <div className="flex gap-4 items-start relative z-10">
@@ -1516,7 +1517,7 @@ export default function ExtraFeatures({
                               />
                             ) : (
                               <div className="w-full h-full flex items-center justify-center font-bold text-cyan-400 font-mono text-base bg-slate-950">
-                                {rel.category === "games" ? "🎮" : rel.category === "filmes" ? "🎬" : rel.category === "series" ? "📺" : "👾"}
+                                {rel.category === "games" ? "🎮" : rel.category === "filmes" ? "🎬" : rel.category === "series" ? "📺" : rel.category === "podcast" ? "🎙️" : "👾"}
                               </div>
                             )}
                             {/* Category badge */}

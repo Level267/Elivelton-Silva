@@ -14,6 +14,7 @@ export default function QuizGame() {
   const [scoredPoints, setScoredPoints] = useState(0);
   const [quizFinished, setQuizFinished] = useState(false);
   const [showExplanation, setShowExplanation] = useState(false);
+  const [quizError, setQuizError] = useState<string | null>(null);
 
   // Generate customized quiz via AI
   const handleGenerateAIQuiz = async (topicTitle: string) => {
@@ -24,6 +25,7 @@ export default function QuizGame() {
     setScoredPoints(0);
     setQuizFinished(false);
     setShowExplanation(false);
+    setQuizError(null);
 
     try {
       const response = await fetch("/api/gemini/generate-quiz", {
@@ -36,12 +38,12 @@ export default function QuizGame() {
         setQuestions(data.quiz);
         setTopic(topicTitle);
       } else {
-        alert("O místico portal de IA oscilou! Carregando quiz padrão.");
+        setQuizError("O místico portal de IA oscilou! Carregando quiz padrão.");
         setQuestions(FALLBACK_QUIZZES["Geral"]);
         setTopic("Geral");
       }
     } catch {
-      alert("Falha ao conjurar quiz por IA. Carregando quiz de contingência padrão.");
+      setQuizError("Falha ao conjurar quiz por IA. Carregando quiz de contingência padrão.");
       setQuestions(FALLBACK_QUIZZES["Geral"]);
       setTopic("Geral");
     } finally {
@@ -116,6 +118,21 @@ export default function QuizGame() {
           </button>
         </div>
       </div>
+
+      {quizError && (
+        <div className="bg-rose-950/30 border-b border-rose-900/40 text-rose-300 px-6 py-2.5 text-xs font-mono flex items-center justify-between gap-3">
+          <span className="flex items-center gap-1.5 leading-snug">
+            <span className="text-sm">⚠️</span> {quizError}
+          </span>
+          <button 
+            type="button" 
+            onClick={() => setQuizError(null)} 
+            className="text-rose-400 hover:text-rose-200 uppercase font-black text-[9px] tracking-wider shrink-0 transition-colors cursor-pointer"
+          >
+            Fechar [X]
+          </button>
+        </div>
+      )}
 
       {/* Sub Category selectors */}
       <div className="bg-[#101317] px-6 py-3 border-b border-[#242b35] flex items-center gap-3 overflow-x-auto">

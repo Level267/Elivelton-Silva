@@ -1,6 +1,6 @@
 export interface Article {
   id: string;
-  category: "games" | "filmes" | "series" | "animes" | "quadrinhos";
+  category: "games" | "filmes" | "series" | "animes" | "quadrinhos" | "podcast";
   title: string;
   excerpt: string;
   content: string;
@@ -13,6 +13,7 @@ export interface Article {
   comments: Comment[];
   rating?: number; // reviewer score e.g. 9.5
   tags?: string[];
+  videoUrl?: string; // e.g. YouTube URL or video ID for Podcasts/videos
 }
 
 export interface Comment {
@@ -145,6 +146,31 @@ Segundo o roteiro, Spawn não usará apenas poderes demoníacos tradicionais, ma
     tags: ["spawn", "quadrinhos", "cyberpunk", "scifi", "image-comics", "geek"],
     comments: [
       { id: "c6", username: "AlSimmonsFan", avatar: "💀", text: "Spawn futurista cyberpunk? Comprei a ideia num piscar de olhos! Essa arte tá insana.", time: "Há 3 horas" }
+    ]
+  },
+  {
+    id: "p1",
+    category: "podcast",
+    title: "DigaCast #42: O Futuro da Realidade Virtual e o Destino dos Consolas Físicos",
+    excerpt: "No episódio de hoje, debatemos o poder da imersão em RV e se as telas micro-OLED vão finalmente substituir as televisões convencionais.",
+    content: `Sejam bem-vindos ao DigaCast, o seu ponto de encontro semanal para discutir tudo o que há de mais quente no universo geek!
+
+No episódio de hoje, nossos hosts debatem as novas fronteiras da Realidade Virtual (RV). Com o lançamento iminente de novos óculos de imersão de baixo custo e telas micro-OLED hiper-realistas, a pergunta que não quer calar é: estamos finalmente próximos de um mundo no estilo do filme Jogador Nº 1 (Ready Player One)?
+
+Também trouxemos convidados especiais da indústria de games independentes para analisar até onde o poder de processamento na nuvem pode ditar os consoles da próxima década. Será que os consoles físicos irão desaparecer completamente para dar lugar ao streaming puramente descentralizado?
+
+Coloque seu fone de ouvido espacial, prepare a bebida e venha conosco nessa viagem cibernética pelos canais de áudio da DigaNews. Disponível completo no player acoplado ou nas plataformas de streaming parceiras!`,
+    author: "Equipe DigaCast",
+    date: "21 de Maio, 2026",
+    readTime: "12 min de áudio",
+    imageUrl: "https://images.unsplash.com/photo-1590602847861-f357a9332bbc?auto=format&fit=crop&w=800&q=80",
+    views: 1245,
+    likes: 98,
+    rating: 9.5,
+    tags: ["podcast", "vr", "digacast", "novidade", "tecnologia"],
+    videoUrl: "https://www.youtube.com/watch?v=dQw4w9WgXcQ",
+    comments: [
+      { id: "c_p1", username: "CastLover", avatar: "🎧", text: "Esse episódio resumiu perfeitamente minhas dúvidas sobre os novos painéis micro-OLED. Sensacional!", time: "Há 4 horas" }
     ]
   }
 ];

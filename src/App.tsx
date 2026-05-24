@@ -19,6 +19,7 @@ import {
   Send,
   Plus,
   Compass,
+  Mic,
   ShieldCheck,
   ChevronLeft,
   ChevronRight,
@@ -31,20 +32,53 @@ import {
   Pause,
   Square,
   Gift,
-  Award
+  Award,
+  Youtube,
+  Instagram,
+  Music,
+  Globe,
+  Check,
+  Edit,
+  Video
 } from "lucide-react";
 import { INITIAL_ARTICLES, RELEASES_CALENDAR, Article } from "./data";
 import QuizGame from "./components/QuizGame";
 import AIBox from "./components/AIBox";
 import ExtraFeatures from "./components/ExtraFeatures";
 import AdminPanel from "./components/AdminPanel";
-import GamerSynth from "./components/GamerSynth";
 import NewsletterClub from "./components/NewsletterClub";
 
+const getYoutubeId = (url?: string) => {
+  if (!url) return null;
+  const regExp = /^.*(youtu.be\/|v\/|u\/\w\/|embed\/|watch\?v=|\&v=)([^#\&\?]*).*/;
+  const match = url.match(regExp);
+  return (match && match[2].length === 11) ? match[2] : null;
+};
+
 export default function App() {
-  const [articles, setArticles] = useState<Article[]>(INITIAL_ARTICLES);
+  const [articles, setArticles] = useState<Article[]>(() => {
+    try {
+      const saved = localStorage.getItem("diganews_articles");
+      return saved ? JSON.parse(saved) : INITIAL_ARTICLES;
+    } catch {
+      return INITIAL_ARTICLES;
+    }
+  });
+
+  React.useEffect(() => {
+    localStorage.setItem("diganews_articles", JSON.stringify(articles));
+  }, [articles]);
+
   const [selectedCategory, setSelectedCategory] = useState<string>("all");
-  const [activeArticle, setActiveArticle] = useState<Article>(INITIAL_ARTICLES[0]);
+  const [activeArticle, setActiveArticle] = useState<Article>(() => {
+    try {
+      const saved = localStorage.getItem("diganews_articles");
+      const parsed = saved ? JSON.parse(saved) : INITIAL_ARTICLES;
+      return parsed[0] || INITIAL_ARTICLES[0];
+    } catch {
+      return INITIAL_ARTICLES[0];
+    }
+  });
   const [releases, setReleases] = useState<any[]>(() => {
     try {
       const saved = localStorage.getItem("diganews_releases");
@@ -112,71 +146,53 @@ export default function App() {
   // Reading customize states
   const [fontSize, setFontSize] = useState<"base" | "lg" | "xl">("base");
   const [readingTheme, setReadingTheme] = useState<"dark" | "sepia" | "terminal">("dark");
-  const [isSpeechPlaying, setIsSpeechPlaying] = useState(false);
-  const [isSpeechPaused, setIsSpeechPaused] = useState(false);
-  const synthInstance = React.useRef<SpeechSynthesisUtterance | null>(null);
-
-  // Stop reading if user switches view or article changes
-  React.useEffect(() => {
-    if (window.speechSynthesis) {
-      window.speechSynthesis.cancel();
-    }
-    setIsSpeechPlaying(false);
-    setIsSpeechPaused(false);
-  }, [isReadingArticle, activeArticle]);
-
-  const handleSpeakText = () => {
-    if (!window.speechSynthesis) {
-      alert("Seu navegador não oferece suporte para síntese de voz (TTS).");
-      return;
-    }
-
-    if (isSpeechPlaying) {
-      if (isSpeechPaused) {
-        window.speechSynthesis.resume();
-        setIsSpeechPaused(false);
-      } else {
-        window.speechSynthesis.pause();
-        setIsSpeechPaused(true);
-      }
-      return;
-    }
-
-    // Stop anything playing
-    window.speechSynthesis.cancel();
-
-    const utteranceText = `${activeArticle.title}. Escrito por ${activeArticle.author}. ${activeArticle.content}`;
-    const utterance = new SpeechSynthesisUtterance(utteranceText);
-    utterance.lang = "pt-BR";
-    utterance.rate = 1.05;
-
-    utterance.onend = () => {
-      setIsSpeechPlaying(false);
-      setIsSpeechPaused(false);
-    };
-
-    utterance.onerror = () => {
-      setIsSpeechPlaying(false);
-      setIsSpeechPaused(false);
-    };
-
-    synthInstance.current = utterance;
-    setIsSpeechPlaying(true);
-    setIsSpeechPaused(false);
-    window.speechSynthesis.speak(utterance);
-  };
-
-  const handleStopSpeech = () => {
-    if (window.speechSynthesis) {
-      window.speechSynthesis.cancel();
-    }
-    setIsSpeechPlaying(false);
-    setIsSpeechPaused(false);
-  };
 
   // Share dialog state
   const [activeShareId, setActiveShareId] = useState<string | null>(null);
   const [copiedId, setCopiedId] = useState<string | null>(null);
+
+  // Social Links State with localStorage persistence
+  const [socialLinks, setSocialLinks] = useState(() => {
+    try {
+      const saved = localStorage.getItem("diganews_socials");
+      const parsed = saved ? JSON.parse(saved) : null;
+      if (parsed && parsed.twitter && !parsed.tiktok) {
+        parsed.tiktok = parsed.twitter.replace("twitter.com", "tiktok.com/@");
+        delete parsed.twitter;
+      }
+      return parsed || {
+        youtube: "https://www.youtube.com/watch?v=dQw4w9WgXcQ",
+        instagram: "https://instagram.com/diganews",
+        tiktok: "https://tiktok.com/@diganews",
+        spotify: "https://open.spotify.com"
+      };
+    } catch {
+      return {
+        youtube: "https://www.youtube.com/watch?v=dQw4w9WgXcQ",
+        instagram: "https://instagram.com/diganews",
+        tiktok: "https://tiktok.com/@diganews",
+        spotify: "https://open.spotify.com"
+      };
+    }
+  });
+
+  const handleUpdateSocialLinks = (newSocials: typeof socialLinks) => {
+    setSocialLinks(newSocials);
+    localStorage.setItem("diganews_socials", JSON.stringify(newSocials));
+  };
+
+  const [isEditingSocials, setIsEditingSocials] = useState(false);
+  const [tempSocials, setTempSocials] = useState(socialLinks);
+
+  const handleStartEditingSocials = () => {
+    setTempSocials(socialLinks);
+    setIsEditingSocials(true);
+  };
+
+  const handleSaveSocials = () => {
+    handleUpdateSocialLinks(tempSocials);
+    setIsEditingSocials(false);
+  };
 
   const handleCopyShareLink = (art: Article, e: React.MouseEvent) => {
     e.stopPropagation();
@@ -237,6 +253,30 @@ export default function App() {
     setArticles(prev => [newArt, ...prev]);
     setActiveArticle(newArt);
     setIsReadingArticle(true);
+  };
+
+  // Handler to edit/update an existing article from Admin panel
+  const handleUpdateArticle = (updatedArt: Article) => {
+    setArticles(prev => prev.map(art => art.id === updatedArt.id ? updatedArt : art));
+    if (activeArticle.id === updatedArt.id) {
+      setActiveArticle(updatedArt);
+    }
+  };
+
+  // Handler to delete an article from Admin panel
+  const handleDeleteArticle = (id: string) => {
+    setArticles(prev => {
+      const updated = prev.filter(art => art.id !== id);
+      if (activeArticle.id === id) {
+        if (updated.length > 0) {
+          setActiveArticle(updated[0]);
+        } else {
+          setActiveArticle(INITIAL_ARTICLES[0]);
+          setIsReadingArticle(false);
+        }
+      }
+      return updated;
+    });
   };
 
   // Helper to return to the home page or start of the website
@@ -344,6 +384,7 @@ export default function App() {
       case "series": return <Tv className="w-3.5 h-3.5" />;
       case "animes": return <Layers className="w-3.5 h-3.5" />;
       case "quadrinhos": return <BookOpen className="w-3.5 h-3.5" />;
+      case "podcast": return <Mic className="w-3.5 h-3.5" />;
       default: return <Compass className="w-3.5 h-3.5" />;
     }
   };
@@ -377,7 +418,8 @@ export default function App() {
               { id: "filmes", label: "Filmes" },
               { id: "series", label: "Séries" },
               { id: "animes", label: "Animes" },
-              { id: "quadrinhos", label: "HQs" }
+              { id: "quadrinhos", label: "HQs" },
+              { id: "podcast", label: "Podcast" }
             ].map(cat => (
               <button
                 key={cat.id}
@@ -451,7 +493,7 @@ export default function App() {
                       <div 
                         id={`featured-card-0`}
                         onClick={() => handleOpenArticle(filteredArticles[0])}
-                        className="md:col-span-2 relative h-96 rounded-2xl overflow-hidden cursor-pointer group border border-white/10 shadow-2xl flex flex-col justify-end"
+                        className="md:col-span-2 relative h-80 sm:h-90 md:h-96 rounded-2xl overflow-hidden cursor-pointer group border border-white/10 shadow-2xl flex flex-col justify-end text-left"
                       >
                         <div className="absolute inset-0 bg-gradient-to-t from-[#0a0a0c] via-black/40 to-transparent z-10" />
                         <img 
@@ -459,7 +501,7 @@ export default function App() {
                           alt={filteredArticles[0].title}
                           className="absolute inset-0 w-full h-full object-cover opacity-70 group-hover:scale-105 transition-transform duration-700 pointer-events-none"
                         />
-                        <div className="p-6 z-20 space-y-2">
+                        <div className="p-4 sm:p-6 z-20 space-y-1.5 md:space-y-2">
                           <div className="flex gap-2">
                             <span className="px-2.5 py-0.5 bg-cyan-500 text-black font-extrabold text-[9px] uppercase tracking-tighter rounded">
                               {filteredArticles[0].category}
@@ -468,16 +510,18 @@ export default function App() {
                               ★ EM DESTAQUE
                             </span>
                           </div>
-                          <h2 className="text-xl md:text-2xl font-black text-white hover:text-cyan-300 leading-tight uppercase line-clamp-2">
+                          <h2 className="text-lg sm:text-xl md:text-2xl font-black text-white hover:text-cyan-300 leading-tight uppercase line-clamp-2">
                             {filteredArticles[0].title}
                           </h2>
                           <p className="text-slate-300 text-xs line-clamp-2 leading-relaxed">
                             {filteredArticles[0].excerpt}
                           </p>
-                          <div className="flex items-center gap-4 text-[10px] text-slate-400 font-mono pt-1">
+                          <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-[10px] text-slate-400 font-mono pt-1">
                             <span>Por {filteredArticles[0].author.split(" ")[0]}</span>
-                            <span>• {filteredArticles[0].date}</span>
-                            <span>• {filteredArticles[0].readTime} de leitura</span>
+                            <span className="text-slate-600">•</span>
+                            <span>{filteredArticles[0].date}</span>
+                            <span className="text-slate-600">•</span>
+                            <span>{filteredArticles[0].readTime} de leitura</span>
                           </div>
                         </div>
                       </div>
@@ -940,53 +984,55 @@ export default function App() {
                       </div>
                     </div>
                   </div>
-
-                  {/* Narrador de Voz DigaBot AI */}
-                  <div className="flex items-center gap-2">
-                    <div className="text-right">
-                      <p className="text-[9px] font-mono uppercase text-slate-500 font-bold block">🎙️ NARRADOR DIGABOT AI</p>
-                      <span className="text-[8px] text-slate-450 font-mono block">Escute a matéria completa!</span>
-                    </div>
-
-                    <div className="flex items-center gap-1 bg-slate-950 p-1 rounded-lg border border-white/5">
-                      <button
-                        id="btn-speak-article"
-                        type="button"
-                        onClick={handleSpeakText}
-                        className={`p-1 rounded text-xs font-black uppercase tracking-wide flex items-center gap-1 transition-all cursor-pointer ${
-                          isSpeechPlaying
-                            ? "bg-amber-500 text-black hover:bg-amber-400"
-                            : "bg-slate-900 hover:bg-slate-850 hover:text-white text-cyan-400"
-                        }`}
-                        title={isSpeechPlaying && !isSpeechPaused ? "Pausar Narração" : "Iniciar Narração em PT-BR"}
-                      >
-                        {isSpeechPlaying && !isSpeechPaused ? (
-                          <>
-                            <Pause className="w-3 h-3 fill-black text-black animate-pulse" />
-                            <span className="text-[9px] font-mono font-bold hidden sm:inline">Pausar</span>
-                          </>
-                        ) : (
-                          <>
-                            <Play className="w-3 h-3 fill-cyan-400 text-cyan-400" />
-                            <span className="text-[9px] font-mono font-bold hidden sm:inline">{isSpeechPaused ? "Continuar" : "Escutar"}</span>
-                          </>
-                        )}
-                      </button>
-
-                      {isSpeechPlaying && (
-                        <button
-                          id="btn-stop-speak"
-                          type="button"
-                          onClick={handleStopSpeech}
-                          className="p-1.5 bg-rose-950/80 hover:bg-rose-900 text-rose-300 rounded cursor-pointer"
-                          title="Parar Narração"
-                        >
-                          <Square className="w-3 h-3 fill-rose-400 text-rose-400" />
-                        </button>
-                      )}
-                    </div>
-                  </div>
                 </div>
+
+                {/* Interactive YouTube Embed Player for Podcast episodes */}
+                {activeArticle.videoUrl && (
+                  <div className="bg-[#0f1013] border border-white/10 rounded-2xl p-4 md:p-6 space-y-3 shadow-lg">
+                    <div className="flex items-center justify-between border-b border-white/5 pb-2.5">
+                      <div className="flex items-center gap-2">
+                        <span className="p-1.5 bg-red-500/10 border border-red-500/30 rounded-lg text-red-500 flex items-center justify-center">
+                          <Play className="w-3.5 h-3.5 fill-red-500 text-red-500" />
+                        </span>
+                        <div>
+                          <h4 className="text-xs font-mono font-black uppercase text-slate-300 tracking-wider">
+                            Player de Transmissão do YouTube
+                          </h4>
+                          <p className="text-[9px] text-slate-500 font-mono">Assista ou escute o podcast integrado diretamente no portal</p>
+                        </div>
+                      </div>
+                      <span className="text-[9px] font-mono font-bold bg-[#ff0000]/10 border border-[#ff0000]/30 text-[#ff0000] uppercase px-2 py-0.5 rounded animate-pulse">
+                        • Sintonizado
+                      </span>
+                    </div>
+
+                    {getYoutubeId(activeArticle.videoUrl) ? (
+                      <div className="relative w-full aspect-video rounded-xl overflow-hidden border border-white/5 bg-black shadow-inner">
+                        <iframe
+                          src={`https://www.youtube.com/embed/${getYoutubeId(activeArticle.videoUrl)}?autoplay=0&rel=0`}
+                          title={activeArticle.title}
+                          allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+                          allowFullScreen
+                          className="absolute inset-0 w-full h-full border-0"
+                        ></iframe>
+                      </div>
+                    ) : (
+                      <div className="p-4 bg-slate-950 rounded-xl border border-white/5 text-center">
+                        <p className="text-xs text-slate-400">
+                          Link externo de mídia sintonizado: <br />
+                          <a
+                            href={activeArticle.videoUrl}
+                            target="_blank"
+                            rel="noreferrer"
+                            className="text-xs text-cyan-400 hover:text-cyan-300 underline font-mono mt-1 inline-block"
+                          >
+                            {activeArticle.videoUrl} ↗
+                          </a>
+                        </p>
+                      </div>
+                    )}
+                  </div>
+                )}
 
                 {/* Detailed Full Content Area  */}
                 <div className={`border rounded-2xl p-6 md:p-8 space-y-6 transition-all duration-350 ${
@@ -1156,10 +1202,161 @@ export default function App() {
 
         {/* Right Sidebar: Releases and Reviews */}
         <div className="lg:col-span-4 flex flex-col bg-[#07080a]/20 space-y-px">
-          
-          {/* GamerSynth widget loaded in the sidebar for background audio loops */}
-          <div className="p-4 border-b border-white/10 bg-[#0c0d11]">
-            <GamerSynth />
+
+          {/* Top: Sintonize Nossas Redes (Creator's Social Media) */}
+          <div className="p-6 border-b border-white/10 bg-[#0c0d10] relative overflow-hidden">
+            <div className="absolute top-0 right-0 w-32 h-32 bg-cyan-500/5 rounded-full filter blur-[40px] pointer-events-none" />
+            
+            <div className="flex justify-between items-center mb-3.5 relative z-10">
+              <h3 className="text-xs font-black uppercase tracking-widest text-slate-300 flex items-center gap-1.5">
+                <Youtube className="w-4 h-4 text-red-500 animate-[bounce_2s_infinite]" />
+                Sintonize Nossas Redes
+              </h3>
+              
+              {!isEditingSocials ? (
+                <button
+                  type="button"
+                  onClick={handleStartEditingSocials}
+                  className="p-1 text-slate-500 hover:text-cyan-400 font-mono text-[9px] uppercase tracking-wider flex items-center gap-1 transition-colors cursor-pointer border border-white/5 hover:border-cyan-500/20 rounded bg-slate-900/50"
+                  title="Editar links sociais"
+                >
+                  <Edit className="w-2.5 h-2.5" />
+                  Editar
+                </button>
+              ) : (
+                <div className="flex gap-1.5">
+                  <button
+                    type="button"
+                    onClick={() => setIsEditingSocials(false)}
+                    className="py-0.5 px-1.5 text-slate-400 hover:text-slate-250 text-[9px] font-mono border border-white/5 rounded cursor-pointer"
+                  >
+                    Excluir
+                  </button>
+                  <button
+                    type="button"
+                    onClick={handleSaveSocials}
+                    className="py-0.5 px-2 bg-emerald-500/10 text-emerald-400 border border-emerald-500/30 hover:bg-emerald-500/20 text-[9px] font-mono rounded font-bold cursor-pointer flex items-center gap-1"
+                  >
+                    <Check className="w-2.5 h-2.5" />
+                    Salvar
+                  </button>
+                </div>
+              )}
+            </div>
+
+            {!isEditingSocials ? (
+              <div className="space-y-2.5 relative z-10">
+                <p className="text-[10px] text-slate-400 leading-normal mb-2">
+                  Acompanhe os episódios completos do nosso Podcast e debates geeks sintonizados nas plataformas de streaming.
+                </p>
+                <div className="grid grid-cols-2 gap-2">
+                  <a
+                    href={socialLinks.youtube}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="flex items-center gap-2 p-2 bg-[#1b1c23]/40 border border-white/5 rounded-xl hover:border-red-500/20 hover:bg-red-950/5 transition-all group"
+                  >
+                    <span className="w-7 h-7 bg-red-600/10 border border-red-600/20 text-red-500 text-xs rounded-lg flex items-center justify-center shrink-0 group-hover:scale-105 transition-transform">
+                      <Youtube className="w-4 h-4 fill-red-500 text-red-500" />
+                    </span>
+                    <div className="min-w-0 flex-1">
+                      <span className="text-[10px] font-black text-white group-hover:text-red-400 transition-colors block uppercase tracking-tight">YouTube</span>
+                      <span className="text-[8px] text-slate-500 font-mono block truncate">Podcasts & Vídeos</span>
+                    </div>
+                  </a>
+
+                  <a
+                    href={socialLinks.spotify}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="flex items-center gap-2 p-2 bg-[#1b1c23]/40 border border-white/5 rounded-xl hover:border-emerald-500/20 hover:bg-emerald-950/5 transition-all group"
+                  >
+                    <span className="w-7 h-7 bg-emerald-600/10 border border-emerald-600/20 text-emerald-400 text-xs rounded-lg flex items-center justify-center shrink-0 group-hover:scale-105 transition-transform">
+                      <Music className="w-4 h-4 text-emerald-400" />
+                    </span>
+                    <div className="min-w-0 flex-1">
+                      <span className="text-[10px] font-black text-white group-hover:text-emerald-400 transition-colors block uppercase tracking-tight">Spotify</span>
+                      <span className="text-[8px] text-slate-500 font-mono block truncate">Podcast RSS</span>
+                    </div>
+                  </a>
+
+                  <a
+                    href={socialLinks.instagram}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="flex items-center gap-2 p-2 bg-[#1b1c23]/40 border border-white/5 rounded-xl hover:border-pink-500/20 hover:bg-pink-950/5 transition-all group"
+                  >
+                    <span className="w-7 h-7 bg-pink-600/10 border border-pink-600/20 text-pink-400 text-xs rounded-lg flex items-center justify-center shrink-0 group-hover:scale-105 transition-transform">
+                      <Instagram className="w-4 h-4 text-pink-400" />
+                    </span>
+                    <div className="min-w-0 flex-1">
+                      <span className="text-[10px] font-black text-white group-hover:text-pink-400 transition-colors block uppercase tracking-tight">Instagram</span>
+                      <span className="text-[8px] text-slate-500 font-mono block truncate">Bastidores Geek</span>
+                    </div>
+                  </a>
+
+                  <a
+                    href={socialLinks.tiktok}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="flex items-center gap-2 p-2 bg-[#1b1c23]/40 border border-white/5 rounded-xl hover:border-purple-500/20 hover:bg-purple-950/5 transition-all group"
+                  >
+                    <span className="w-7 h-7 bg-purple-600/10 border border-purple-600/20 text-purple-400 text-xs rounded-lg flex items-center justify-center shrink-0 group-hover:scale-105 transition-transform">
+                      <Video className="w-4 h-4 text-purple-400" />
+                    </span>
+                    <div className="min-w-0 flex-1">
+                      <span className="text-[10px] font-black text-white group-hover:text-purple-400 transition-colors block uppercase tracking-tight">TikTok</span>
+                      <span className="text-[8px] text-slate-500 font-mono block truncate">Cortes & Vídeos Curtos</span>
+                    </div>
+                  </a>
+                </div>
+              </div>
+            ) : (
+              <div className="space-y-3 relative z-10 bg-slate-950/80 p-3.5 border border-white/5 rounded-xl">
+                <span className="text-[9px] font-mono uppercase bg-slate-900 border border-white/10 text-cyan-400 px-1.5 py-0.5 rounded block text-center font-bold">
+                  Painel de Configuração Rápida
+                </span>
+                
+                <div className="space-y-2">
+                  <div>
+                    <label className="text-[8px] font-mono uppercase text-slate-400 block mb-1">🔗 Canal do YouTube</label>
+                    <input
+                      type="text"
+                      className="w-full bg-[#1b1c23] border border-white/10 text-[10px] rounded px-2 py-1 text-white focus:outline-none focus:border-red-500 font-mono text-zinc-100"
+                      value={tempSocials.youtube}
+                      onChange={(e) => setTempSocials({ ...tempSocials, youtube: e.target.value })}
+                    />
+                  </div>
+                  <div>
+                    <label className="text-[8px] font-mono uppercase text-slate-400 block mb-1">🔗 Feed do Spotify</label>
+                    <input
+                      type="text"
+                      className="w-full bg-[#1b1c23] border border-white/10 text-[10px] rounded px-2 py-1 text-white focus:outline-none focus:border-emerald-500 font-mono text-zinc-100"
+                      value={tempSocials.spotify}
+                      onChange={(e) => setTempSocials({ ...tempSocials, spotify: e.target.value })}
+                    />
+                  </div>
+                  <div>
+                    <label className="text-[8px] font-mono uppercase text-slate-400 block mb-1">🔗 Perfil do Instagram</label>
+                    <input
+                      type="text"
+                      className="w-full bg-[#1b1c23] border border-white/10 text-[10px] rounded px-2 py-1 text-white focus:outline-none focus:border-pink-500 font-mono text-zinc-100"
+                      value={tempSocials.instagram}
+                      onChange={(e) => setTempSocials({ ...tempSocials, instagram: e.target.value })}
+                    />
+                  </div>
+                  <div>
+                    <label className="text-[8px] font-mono uppercase text-slate-400 block mb-1">🔗 Perfil do TikTok</label>
+                    <input
+                      type="text"
+                      className="w-full bg-[#1b1c23] border border-white/10 text-[10px] rounded px-2 py-1 text-white focus:outline-none focus:border-purple-400 font-mono text-zinc-100"
+                      value={tempSocials.tiktok}
+                      onChange={(e) => setTempSocials({ ...tempSocials, tiktok: e.target.value })}
+                    />
+                  </div>
+                </div>
+              </div>
+            )}
           </div>
 
           {/* Top: Bookmark and Read Later List */}
@@ -1332,7 +1529,10 @@ export default function App() {
       {/* Admin Panel Modal Overlay */}
       {isAdminOpen && (
         <AdminPanel 
+          articles={articles}
           onAddArticle={handleAddNewArticle} 
+          onUpdateArticle={handleUpdateArticle}
+          onDeleteArticle={handleDeleteArticle}
           onClose={() => setIsAdminOpen(false)} 
         />
       )}
