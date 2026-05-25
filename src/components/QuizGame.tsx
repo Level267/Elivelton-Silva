@@ -3,10 +3,21 @@ import { motion, AnimatePresence } from "motion/react";
 import { Award, RefreshCw, Sparkles, CheckCircle2, AlertCircle, HelpCircle, ArrowRight, BookOpen, BrainCircuit } from "lucide-react";
 import { FALLBACK_QUIZZES, QuizQuestion } from "../data";
 
+// Helper to shuffle questions in place to randomize and prevent repeating questions
+const shuffleArray = <T,>(array: T[]): T[] => {
+  const arr = [...array];
+  for (let i = arr.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [arr[i], arr[j]] = [arr[j], arr[i]];
+  }
+  return arr;
+};
+
 export default function QuizGame() {
   const [topic, setTopic] = useState("Geral");
   const [customTopic, setCustomTopic] = useState("");
-  const [questions, setQuestions] = useState<QuizQuestion[]>(FALLBACK_QUIZZES["Geral"]);
+  const [difficulty, setDifficulty] = useState<"Fácil" | "Médio" | "Difícil">("Médio");
+  const [questions, setQuestions] = useState<QuizQuestion[]>(() => shuffleArray(FALLBACK_QUIZZES["Geral"]));
   
   const [loading, setLoading] = useState(false);
   const [currentIndex, setCurrentIndex] = useState(0);
@@ -16,8 +27,8 @@ export default function QuizGame() {
   const [showExplanation, setShowExplanation] = useState(false);
   const [quizError, setQuizError] = useState<string | null>(null);
 
-  // Generate customized quiz via AI
-  const handleGenerateAIQuiz = async (topicTitle: string) => {
+  // Generate customized quiz via AI (includes selected difficulty level)
+  const handleGenerateAIQuiz = async (topicTitle: string, selectedDiff = difficulty) => {
     if (!topicTitle.trim()) return;
     setLoading(true);
     setCurrentIndex(0);
@@ -31,20 +42,21 @@ export default function QuizGame() {
       const response = await fetch("/api/gemini/generate-quiz", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ topic: topicTitle }),
+        body: JSON.stringify({ topic: topicTitle, difficulty: selectedDiff }),
       });
       const data = await response.json();
       if (response.ok && Array.isArray(data.quiz) && data.quiz.length > 0) {
-        setQuestions(data.quiz);
+        // Shuffle to randomize questions and avoid repeating them
+        setQuestions(shuffleArray(data.quiz));
         setTopic(topicTitle);
       } else {
-        setQuizError("O místico portal de IA oscilou! Carregando quiz padrão.");
-        setQuestions(FALLBACK_QUIZZES["Geral"]);
+        setQuizError("O místico portal de IA oscilou! Carregando quiz de contingência embaralhado.");
+        setQuestions(shuffleArray(FALLBACK_QUIZZES["Geral"]));
         setTopic("Geral");
       }
     } catch {
-      setQuizError("Falha ao conjurar quiz por IA. Carregando quiz de contingência padrão.");
-      setQuestions(FALLBACK_QUIZZES["Geral"]);
+      setQuizError("Falha ao conjurar quiz por IA. Carregando quiz padrão embaralhado.");
+      setQuestions(shuffleArray(FALLBACK_QUIZZES["Geral"]));
       setTopic("Geral");
     } finally {
       setLoading(false);
@@ -53,7 +65,8 @@ export default function QuizGame() {
 
   const selectPredefinedTopic = (name: string) => {
     setTopic(name);
-    setQuestions(FALLBACK_QUIZZES[name] || FALLBACK_QUIZZES["Geral"]);
+    // Shuffle predefined questions to give an unpredictable experience of non-repeating questions
+    setQuestions(shuffleArray(FALLBACK_QUIZZES[name] || FALLBACK_QUIZZES["Geral"]));
     setCurrentIndex(0);
     setSelectedAnswer(null);
     setScoredPoints(0);
@@ -94,7 +107,7 @@ export default function QuizGame() {
           <h2 className="text-xl font-bold text-white mt-1.5 flex items-center gap-2">
             Quiz Geek Interativo <span className="text-sm font-normal text-purple-300 font-mono">({topic})</span>
           </h2>
-          <p className="text-xs text-purple-200 mt-1">Gere novos quizzes de IA sobre QUALQUER assunto geek no campo abaixo!</p>
+          <p className="text-xs text-purple-200 mt-1">Gere novos quizzes de IA sobre QUALQUER assunto geek no campo ao lado!</p>
         </div>
 
         {/* AI Generator Search/Bar */}
@@ -134,23 +147,59 @@ export default function QuizGame() {
         </div>
       )}
 
-      {/* Sub Category selectors */}
-      <div className="bg-[#101317] px-6 py-3 border-b border-[#242b35] flex items-center gap-3 overflow-x-auto">
-        <span className="text-xs text-gray-400 font-semibold shrink-0">Temas Prontos:</span>
-        {Object.keys(FALLBACK_QUIZZES).map((name) => (
-          <button
-            key={name}
-            id={`quiz-theme-btn-${name}`}
-            onClick={() => selectPredefinedTopic(name)}
-            className={`text-xs px-3 py-1 rounded-full border transition-all ${
-              topic === name
-                ? "bg-indigo-600/20 border-indigo-500 text-indigo-300"
-                : "bg-transparent border-[#242b35] hover:border-gray-600 text-gray-400 hover:text-white"
-            }`}
-          >
-            {name}
-          </button>
-        ))}
+      {/* Sub Category selectors & Difficulty Controls */}
+      <div className="bg-[#101317] px-6 py-4 border-b border-[#242b35] flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+        {/* Predefined Categories */}
+        <div className="flex items-center gap-3 overflow-x-auto">
+          <span className="text-xs text-slate-400 font-semibold shrink-0">Temas Prontos:</span>
+          {Object.keys(FALLBACK_QUIZZES).map((name) => (
+            <button
+              key={name}
+              id={`quiz-theme-btn-${name}`}
+              onClick={() => selectPredefinedTopic(name)}
+              className={`text-xs px-3 py-1 rounded-full border transition-all cursor-pointer font-medium ${
+                topic === name
+                  ? "bg-indigo-600/20 border-indigo-500 text-indigo-300 font-bold"
+                  : "bg-transparent border-[#242b35] hover:border-slate-500 text-slate-400 hover:text-white"
+              }`}
+            >
+              {name}
+            </button>
+          ))}
+        </div>
+
+        {/* Difficulty Selectors */}
+        <div className="flex items-center gap-2 flex-wrap">
+          <span className="text-xs text-slate-400 font-semibold shrink-0">Dificuldade desejada:</span>
+          {(["Fácil", "Médio", "Difícil"] as const).map((level) => (
+            <button
+              key={level}
+              id={`quiz-difficulty-btn-${level}`}
+              onClick={() => {
+                setDifficulty(level);
+                // Dynamically re-trigger with AI if we are currently on an AI-generated topic, or just set difficulty
+                if (topic !== "Geral" && topic !== "Animes" && topic !== "Games") {
+                  handleGenerateAIQuiz(topic, level);
+                } else {
+                  // For predefined topics, we also shuffle the fallback selection
+                  selectPredefinedTopic(topic);
+                }
+              }}
+              className={`text-xs px-2.5 py-1 rounded-lg border transition-all cursor-pointer font-bold ${
+                difficulty === level
+                  ? level === "Fácil"
+                    ? "bg-emerald-500/15 border-emerald-500 text-emerald-400"
+                    : level === "Médio"
+                      ? "bg-amber-500/15 border-amber-500 text-amber-400"
+                      : "bg-rose-500/15 border-rose-500 text-rose-400"
+                  : "bg-transparent border-[#242b35] text-slate-450 hover:text-white hover:border-slate-650"
+              }`}
+            >
+              {level === "Fácil" ? "🟢 " : level === "Médio" ? "🟡 " : "🔴 "}
+              {level}
+            </button>
+          ))}
+        </div>
       </div>
 
       {/* Main Sandbox */}

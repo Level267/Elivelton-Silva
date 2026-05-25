@@ -70,6 +70,31 @@ export default function App() {
     localStorage.setItem("diganews_articles", JSON.stringify(articles));
   }, [articles]);
 
+  // Sync simultaneous sintonizador articles at startup
+  React.useEffect(() => {
+    let active = true;
+    fetch("/api/articles")
+      .then(res => {
+        if (!res.ok) throw new Error("Server error");
+        return res.json();
+      })
+      .then(data => {
+        if (active && Array.isArray(data) && data.length > 0) {
+          setArticles(data);
+          setActiveArticle(prev => {
+            const stillExists = data.find(art => art.id === prev.id);
+            return stillExists || data[0];
+          });
+        }
+      })
+      .catch(err => {
+        console.warn("Relying on offline/local storage fallback for articles.", err);
+      });
+    return () => {
+      active = false;
+    };
+  }, []);
+
   const [selectedCategory, setSelectedCategory] = useState<string>("all");
   const [activeArticle, setActiveArticle] = useState<Article>(() => {
     try {
@@ -179,26 +204,36 @@ export default function App() {
 
   // Social Links State with localStorage persistence
   const [socialLinks, setSocialLinks] = useState(() => {
+    const defaultSocials = {
+      youtube: "https://www.youtube.com/@Digaac%C3%A3o",
+      instagram: "https://www.instagram.com/digaacao.podcast?utm_source=ig_web_button_share_sheet&igsh=ZDNlZDc0MzIxNw==",
+      tiktok: "https://www.tiktok.com/@digaacao.podcast?is_from_webapp=1&sender_device=pc",
+      spotify: "https://open.spotify.com/show/6VuajYlMFBOurqejVpNKcO?si=5b1084e6295440e1"
+    };
+
     try {
       const saved = localStorage.getItem("diganews_socials");
-      const parsed = saved ? JSON.parse(saved) : null;
-      if (parsed && parsed.twitter && !parsed.tiktok) {
-        parsed.tiktok = parsed.twitter.replace("twitter.com", "tiktok.com/@");
-        delete parsed.twitter;
+      if (saved) {
+        const parsed = JSON.parse(saved);
+        if (parsed && parsed.twitter && !parsed.tiktok) {
+          parsed.tiktok = parsed.twitter.replace("twitter.com", "tiktok.com/@");
+          delete parsed.twitter;
+        }
+        // Force upgrade if using old default domain placeholders
+        if (
+          parsed &&
+          (parsed.instagram?.includes("diganews") ||
+            parsed.youtube?.includes("dQw4w9WgXcQ") ||
+            parsed.tiktok?.includes("diganews") ||
+            parsed.spotify === "https://open.spotify.com")
+        ) {
+          return defaultSocials;
+        }
+        return parsed || defaultSocials;
       }
-      return parsed || {
-        youtube: "https://www.youtube.com/watch?v=dQw4w9WgXcQ",
-        instagram: "https://instagram.com/diganews",
-        tiktok: "https://tiktok.com/@diganews",
-        spotify: "https://open.spotify.com"
-      };
+      return defaultSocials;
     } catch {
-      return {
-        youtube: "https://www.youtube.com/watch?v=dQw4w9WgXcQ",
-        instagram: "https://instagram.com/diganews",
-        tiktok: "https://tiktok.com/@diganews",
-        spotify: "https://open.spotify.com"
-      };
+      return defaultSocials;
     }
   });
 
@@ -275,22 +310,40 @@ export default function App() {
   }, []);
 
   // Handler to publish a new article from Admin panel
-  const handleAddNewArticle = (newArt: Article) => {
+  const handleAddNewArticle = async (newArt: Article) => {
     setArticles(prev => [newArt, ...prev]);
     setActiveArticle(newArt);
     setIsReadingArticle(true);
+    try {
+      await fetch("/api/articles", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(newArt)
+      });
+    } catch (err) {
+      console.error("Failed to sync new article in real time:", err);
+    }
   };
 
   // Handler to edit/update an existing article from Admin panel
-  const handleUpdateArticle = (updatedArt: Article) => {
+  const handleUpdateArticle = async (updatedArt: Article) => {
     setArticles(prev => prev.map(art => art.id === updatedArt.id ? updatedArt : art));
     if (activeArticle.id === updatedArt.id) {
       setActiveArticle(updatedArt);
     }
+    try {
+      await fetch(`/api/articles/${updatedArt.id}`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(updatedArt)
+      });
+    } catch (err) {
+      console.error("Failed to sync edited article in real time:", err);
+    }
   };
 
   // Handler to delete an article from Admin panel
-  const handleDeleteArticle = (id: string) => {
+  const handleDeleteArticle = async (id: string) => {
     setArticles(prev => {
       const updated = prev.filter(art => art.id !== id);
       if (activeArticle.id === id) {
@@ -303,6 +356,13 @@ export default function App() {
       }
       return updated;
     });
+    try {
+      await fetch(`/api/articles/${id}`, {
+        method: "DELETE"
+      });
+    } catch (err) {
+      console.error("Failed to sync deleted article in real time:", err);
+    }
   };
 
   // Helper to return to the home page or start of the website

@@ -3,6 +3,7 @@ import path from "path";
 import dotenv from "dotenv";
 import { GoogleGenAI, Type } from "@google/genai";
 import { createServer as createViteServer } from "vite";
+import { INITIAL_ARTICLES, Article } from "./src/data";
 
 dotenv.config();
 
@@ -10,6 +11,59 @@ const app = express();
 const PORT = 3000;
 
 app.use(express.json());
+
+// Enable CORS so external sites can load articles as sintonizadas by the user
+app.use((req, res, next) => {
+  res.setHeader("Access-Control-Allow-Origin", "*");
+  res.setHeader("Access-Control-Allow-Methods", "GET, POST, PUT, DELETE, OPTIONS");
+  res.setHeader("Access-Control-Allow-Headers", "Content-Type, Authorization");
+  if (req.method === "OPTIONS") {
+    res.sendStatus(200);
+    return;
+  }
+  next();
+});
+
+// Simple in-memory synchronized database for sintonizadas articles
+let serverArticles: Article[] = [...INITIAL_ARTICLES];
+
+// GET: Load sintonizadas articles simultaneously
+app.get("/api/articles", (req, res) => {
+  res.json(serverArticles);
+});
+
+// POST: Register a new sintonizada article
+app.post("/api/articles", (req, res) => {
+  const newArticle = req.body;
+  if (!newArticle || !newArticle.id) {
+    res.status(400).json({ error: "Invalid article data" });
+    return;
+  }
+  const exists = serverArticles.find(art => art.id === newArticle.id);
+  if (!exists) {
+    serverArticles = [newArticle, ...serverArticles];
+  }
+  res.json({ success: true, article: newArticle });
+});
+
+// PUT: Update a sintonizada article
+app.put("/api/articles/:id", (req, res) => {
+  const { id } = req.params;
+  const updatedArticle = req.body;
+  if (!updatedArticle) {
+    res.status(400).json({ error: "Invalid article data" });
+    return;
+  }
+  serverArticles = serverArticles.map(art => art.id === id ? updatedArticle : art);
+  res.json({ success: true, article: updatedArticle });
+});
+
+// DELETE: Remove a sintonizada article
+app.delete("/api/articles/:id", (req, res) => {
+  const { id } = req.params;
+  serverArticles = serverArticles.filter(art => art.id !== id);
+  res.json({ success: true });
+});
 
 // Initialize Gemini Client Lazily/Safely to avoid crashing if API key is not yet set
 let aiClient: GoogleGenAI | null = null;
@@ -66,14 +120,19 @@ app.post("/api/gemini/summarize", async (req, res) => {
 // 2. API: Dynamic Quiz Generator
 app.post("/api/gemini/generate-quiz", async (req, res) => {
   try {
-    const { topic } = req.body;
+    const { topic, difficulty = "Médio" } = req.body;
     if (!topic) {
       res.status(400).json({ error: "Topic is required." });
       return;
     }
 
     const gemini = getGemini();
-    const prompt = `Gere 5 perguntas de múltipla escolha interativas e divertidas em português sobre o tema: ${topic}. 
+    const prompt = `Gere 5 perguntas de múltipla escolha interativas, criativas e divertidas em português brasileiro sobre o tema: ${topic}. 
+    A dificuldade desejada para as perguntas é: **${difficulty}** (fácil, médio ou difícil).
+    Guia de elaboração de perguntas por dificuldade:
+    - fácil: perguntas simples, engraçadas e amplamente conhecidas sobre o tema, amigável para curiosos e casuais.
+    - médio: curiosidades que requerem conhecimento padrão de quem realmente consumiu/jogou/assistiu a obra.
+    - difícil: perguntas sobre lore profundo, segredos dos bastidores, datas, referências ocultas ou detalhes ultra-específicos para fãs hardcore e especialistas!
     Retorne estritamente um JSON estruturado seguindo as regras explicadas, sem formatações adicionais de markdown (não use blocos de código markdown ou crases, apenas o JSON puro).`;
 
     const response = await gemini.models.generateContent({
